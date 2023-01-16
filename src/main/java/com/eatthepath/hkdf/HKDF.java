@@ -42,13 +42,18 @@ public class HKDF {
         return algorithm;
     }
 
-    public byte[] deriveKey(final byte[] salt, final byte[] inputKeyMaterial, final int outputKeyLength, final byte[] info) {
+    public byte[] deriveKey(final byte[] inputKeyMaterial,
+                            final byte[] salt,
+                            final byte[] info,
+                            final int outputKeyLength) {
+
         if (outputKeyLength < 1) {
             throw new IllegalArgumentException("Output key length must be positive");
         }
 
         if (outputKeyLength > 255 * macLength) {
-            throw new IllegalArgumentException("Output key length with " + algorithm + " must be no more than " + (255 * macLength) + " bytes");
+            throw new IllegalArgumentException(
+                    "Output key length with " + algorithm + " must be no more than " + (255 * macLength) + " bytes");
         }
 
         try {
