@@ -124,21 +124,10 @@ class HKDFTest {
         final byte[] parsed = new byte[charSequence.length() / 2];
 
         for (int i = 0; i < charSequence.length(); i += 2) {
-            parsed[i / 2] = (byte) (getNibble(charSequence.charAt(i)) << 4 | getNibble(charSequence.charAt(i + 1)));
+            parsed[i / 2] = (byte) (Character.digit(charSequence.charAt(i), 16) << 4 |
+                    Character.digit(charSequence.charAt(i + 1), 16));
         }
 
         return parsed;
-    }
-
-    private static byte getNibble(final char c) {
-        if (c >= '0' && c <= '9') {
-            return (byte) (c - '0');
-        } else if (c >= 'a' && c <= 'f') {
-            return (byte) (c - 'a' + 10);
-        } else if (c >= 'A' && c <= 'F') {
-            return (byte) (c - 'A' + 10);
-        } else {
-            throw new IllegalArgumentException("Unexpected character: " + c);
-        }
     }
 }
