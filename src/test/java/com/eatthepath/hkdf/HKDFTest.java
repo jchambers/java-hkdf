@@ -102,6 +102,15 @@ class HKDFTest {
                         new byte[0],
                         42,
                         hexFormat.parseHex("2c91117204d745f3500d636a62f64f0ab3bae548aa53d423b0d1f27ebba6f5e5673a081d70cce7acfc48")
+                ),
+
+                Arguments.of(
+                        "HmacSHA1",
+                        hexFormat.parseHex("0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c"),
+                        null,
+                        null,
+                        42,
+                        hexFormat.parseHex("2c91117204d745f3500d636a62f64f0ab3bae548aa53d423b0d1f27ebba6f5e5673a081d70cce7acfc48")
                 )
         );
     }
