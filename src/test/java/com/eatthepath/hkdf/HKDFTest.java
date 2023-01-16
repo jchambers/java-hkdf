@@ -1,42 +1,33 @@
 package com.eatthepath.hkdf;
 
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import javax.crypto.Mac;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class HKDFTest {
 
-    @ParameterizedTest
-    @MethodSource
-    void extract(final byte[] salt, final byte[] inputKeyMaterial, final byte[] expectedPseudoRandomKey) throws NoSuchAlgorithmException {
-        final Mac hmac = Mac.getInstance(HKDF.ALGORITHM_HMAC_SHA256);
-
-        assertArrayEquals(expectedPseudoRandomKey, HKDF.extract(hmac, salt, inputKeyMaterial));
+    @Test
+    void withHmacSha1() {
+        assertEquals("HmacSHA1", HKDF.withHmacSha1().getAlgorithm());
     }
 
-    private static Stream<Arguments> extract() {
-        final HexFormat hexFormat = HexFormat.of();
-
-        return Stream.of(
-                Arguments.of(
-                        hexFormat.parseHex("000102030405060708090a0b0c"),
-                        hexFormat.parseHex("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b"),
-                        hexFormat.parseHex("077709362c2e32df0ddc3f0dc47bba6390b6c73bb50f9c3122ec844ad7c2b3e5")
-                )
-        );
+    @Test
+    void withHmacSha256() {
+        assertEquals("HmacSHA256", HKDF.withHmacSha256().getAlgorithm());
     }
 
     @ParameterizedTest
     @MethodSource
-    void deriveKey(final byte[] salt, final byte[] inputKeyMaterial, final byte[] info, final int outputKeyLength, final byte[] expectedKey) throws NoSuchAlgorithmException {
-        assertArrayEquals(expectedKey, HKDF.deriveKey(salt, inputKeyMaterial, outputKeyLength, info));
+    void deriveKey(final String algorithm, final byte[] salt, final byte[] inputKeyMaterial, final byte[] info, final int outputKeyLength, final byte[] expectedKey) throws NoSuchAlgorithmException {
+        assertArrayEquals(expectedKey, new HKDF(algorithm).deriveKey(salt, inputKeyMaterial, outputKeyLength, info));
     }
 
     private static Stream<Arguments> deriveKey() {
@@ -44,6 +35,7 @@ class HKDFTest {
 
         return Stream.of(
                 Arguments.of(
+                        "HmacSHA256",
                         hexFormat.parseHex("000102030405060708090a0b0c"),
                         hexFormat.parseHex("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b"),
                         hexFormat.parseHex("f0f1f2f3f4f5f6f7f8f9"),
@@ -52,6 +44,7 @@ class HKDFTest {
                 ),
 
                 Arguments.of(
+                        "HmacSHA256",
                         hexFormat.parseHex("606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeaf"),
                         hexFormat.parseHex("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f"),
                         hexFormat.parseHex("b0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"),
@@ -60,11 +53,48 @@ class HKDFTest {
                 ),
 
                 Arguments.of(
+                        "HmacSHA256",
                         new byte[0],
                         hexFormat.parseHex("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b"),
                         new byte[0],
                         42,
                         hexFormat.parseHex("8da4e775a563c18f715f802a063c5a31b8a11f5c5ee1879ec3454e5f3c738d2d9d201395faa4b61a96c8")
+                ),
+
+                Arguments.of(
+                        "HmacSHA1",
+                        hexFormat.parseHex("000102030405060708090a0b0c"),
+                        hexFormat.parseHex("0b0b0b0b0b0b0b0b0b0b0b"),
+                        hexFormat.parseHex("f0f1f2f3f4f5f6f7f8f9"),
+                        42,
+                        hexFormat.parseHex("085a01ea1b10f36933068b56efa5ad81a4f14b822f5b091568a9cdd4f155fda2c22e422478d305f3f896")
+                ),
+
+                Arguments.of(
+                        "HmacSHA1",
+                        hexFormat.parseHex("606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeaf"),
+                        hexFormat.parseHex("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f"),
+                        hexFormat.parseHex("b0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"),
+                        82,
+                        hexFormat.parseHex("0bd770a74d1160f7c9f12cd5912a06ebff6adcae899d92191fe4305673ba2ffe8fa3f1a4e5ad79f3f334b3b202b2173c486ea37ce3d397ed034c7f9dfeb15c5e927336d0441f4c4300e2cff0d0900b52d3b4")
+                ),
+
+                Arguments.of(
+                        "HmacSHA1",
+                        new byte[0],
+                        hexFormat.parseHex("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b"),
+                        new byte[0],
+                        42,
+                        hexFormat.parseHex("0ac1af7002b3d761d1e55298da9d0506b9ae52057220a306e07b6b87e8df21d0ea00033de03984d34918")
+                ),
+
+                Arguments.of(
+                        "HmacSHA1",
+                        null,
+                        hexFormat.parseHex("0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c"),
+                        new byte[0],
+                        42,
+                        hexFormat.parseHex("2c91117204d745f3500d636a62f64f0ab3bae548aa53d423b0d1f27ebba6f5e5673a081d70cce7acfc48")
                 )
         );
     }

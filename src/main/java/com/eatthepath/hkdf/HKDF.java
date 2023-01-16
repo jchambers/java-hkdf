@@ -10,22 +10,50 @@ import java.util.Arrays;
 
 public class HKDF {
 
-    static final String ALGORITHM_HMAC_SHA256 = "HmacSHA256";
-    private static final int HMAC_LENGTH = 32;
-    private static final Key DEFAULT_SALT = new SecretKeySpec(new byte[HMAC_LENGTH], ALGORITHM_HMAC_SHA256);
+    private final String algorithm;
+    private final int macLength;
+    private final Key defaultSalt;
 
-    public static byte[] deriveKey(final byte[] salt, final byte[] inputKeyMaterial, final int outputKeyLength, final byte[] info) {
+    public HKDF(final String algorithm) throws NoSuchAlgorithmException {
+        final Mac hmac = Mac.getInstance(algorithm);
+
+        this.algorithm = algorithm;
+        this.macLength = hmac.getMacLength();
+        this.defaultSalt = new SecretKeySpec(new byte[macLength], algorithm);
+    }
+
+    public static HKDF withHmacSha1() {
         try {
-            final Mac hmac = Mac.getInstance(ALGORITHM_HMAC_SHA256);
-            return expand(hmac, extract(hmac, salt, inputKeyMaterial), outputKeyLength, info);
+            return new HKDF("HmacSHA1");
         } catch (final NoSuchAlgorithmException e) {
-            throw new AssertionError("All Java implementations must support HmacSHA256");
+            throw new AssertionError("All Java implementations are required to support HmacSHA1");
         }
     }
 
-    static byte[] extract(final Mac hmac, final byte[] salt, final byte[] inputKeyMaterial) {
+    public static HKDF withHmacSha256() {
         try {
-            hmac.init(salt != null && salt.length != 0 ? new SecretKeySpec(salt, ALGORITHM_HMAC_SHA256) : DEFAULT_SALT);
+            return new HKDF("HmacSHA256");
+        } catch (final NoSuchAlgorithmException e) {
+            throw new AssertionError("All Java implementations are required to support HmacSHA256");
+        }
+    }
+
+    public byte[] deriveKey(final byte[] salt, final byte[] inputKeyMaterial, final int outputKeyLength, final byte[] info) {
+        try {
+            final Mac hmac = Mac.getInstance(algorithm);
+            return expand(hmac, extract(hmac, salt, inputKeyMaterial), outputKeyLength, info);
+        } catch (final NoSuchAlgorithmException e) {
+            throw new AssertionError("Previously-legal algorithms must remain legal");
+        }
+    }
+
+    public String getAlgorithm() {
+        return algorithm;
+    }
+
+    byte[] extract(final Mac hmac, final byte[] salt, final byte[] inputKeyMaterial) {
+        try {
+            hmac.init(salt != null && salt.length != 0 ? new SecretKeySpec(salt, algorithm) : defaultSalt);
             return hmac.doFinal(inputKeyMaterial);
         } catch (final InvalidKeyException e) {
             // Technically, this can never happen because HmacSHA256 allows keys of any length even if very long keys
@@ -34,16 +62,16 @@ public class HKDF {
         }
     }
 
-    static byte[] expand(final Mac hmac, final byte[] pseudoRandomKey, final int outputKeyLength, final byte[] info) {
-        if (outputKeyLength > 255 * HMAC_LENGTH) {
+    byte[] expand(final Mac hmac, final byte[] pseudoRandomKey, final int outputKeyLength, final byte[] info) {
+        if (outputKeyLength > 255 * macLength) {
             throw new IllegalArgumentException("TODO");
         }
 
-        final int rounds = (outputKeyLength + HMAC_LENGTH - 1) / HMAC_LENGTH;
-        final byte[] outputKey = new byte[rounds * HMAC_LENGTH];
+        final int rounds = (outputKeyLength + macLength - 1) / macLength;
+        final byte[] outputKey = new byte[rounds * macLength];
 
         try {
-            hmac.init(new SecretKeySpec(pseudoRandomKey, ALGORITHM_HMAC_SHA256));
+            hmac.init(new SecretKeySpec(pseudoRandomKey, algorithm));
         } catch (final InvalidKeyException e) {
             // This should never happen; this method should only be called with keys derived from the extract() method
             throw new AssertionError("Extracted keys must be valid");
@@ -55,10 +83,10 @@ public class HKDF {
             hmac.doFinal(outputKey, 0);
 
             for (byte round = 1; round < rounds; round++) {
-                hmac.update(outputKey, (round - 1) * HMAC_LENGTH, HMAC_LENGTH);
+                hmac.update(outputKey, (round - 1) * macLength, macLength);
                 hmac.update(info);
                 hmac.update((byte) (round + 1));
-                hmac.doFinal(outputKey, round * HMAC_LENGTH);
+                hmac.doFinal(outputKey, round * macLength);
             }
 
             final byte[] truncatedKey = new byte[outputKeyLength];
