@@ -3,23 +3,82 @@ package com.eatthepath.hkdf;
 import javax.crypto.Mac;
 import javax.crypto.ShortBufferException;
 import javax.crypto.spec.SecretKeySpec;
-import java.security.InvalidKeyException;
-import java.security.Key;
-import java.security.NoSuchAlgorithmException;
+import java.security.*;
 import java.util.Arrays;
+import java.util.function.Supplier;
 
 public class HKDF {
 
-    private final String algorithm;
-    private final int macLength;
+    private final Supplier<Mac> hmacSupplier;
     private final Key defaultSalt;
 
-    public HKDF(final String algorithm) throws NoSuchAlgorithmException {
-        final Mac hmac = Mac.getInstance(algorithm);
+    @FunctionalInterface
+    private interface MacSupplier {
+        Mac get() throws NoSuchAlgorithmException, NoSuchProviderException;
+    }
 
-        this.algorithm = algorithm;
-        this.macLength = hmac.getMacLength();
-        this.defaultSalt = new SecretKeySpec(new byte[macLength], algorithm);
+    public HKDF(final String algorithm) throws NoSuchAlgorithmException {
+        final Supplier<Mac> hmacSupplier;
+
+        try {
+            hmacSupplier = buildHmacSupplier(() -> Mac.getInstance(algorithm));
+        } catch (final NoSuchProviderException e) {
+            // This can never happen because we're not trying to find a provider by name
+            throw new AssertionError("Failed to find provider, but no provider name specified", e);
+        }
+
+        this.hmacSupplier = hmacSupplier;
+        this.defaultSalt = buildDefaultSalt(hmacSupplier.get());
+    }
+
+    public HKDF(final String algorithm, final String provider) throws NoSuchAlgorithmException, NoSuchProviderException {
+        this.hmacSupplier = buildHmacSupplier(() -> Mac.getInstance(algorithm, provider));
+        this.defaultSalt = buildDefaultSalt(hmacSupplier.get());
+    }
+
+    public HKDF(final String algorithm, final Provider provider) throws NoSuchAlgorithmException {
+        final Supplier<Mac> hmacSupplier;
+
+        try {
+            hmacSupplier = buildHmacSupplier(() -> Mac.getInstance(algorithm, provider));
+        } catch (final NoSuchProviderException e) {
+            // This can never happen because we're not trying to find a provider by name
+            throw new AssertionError("Failed to find provider, but no provider name specified", e);
+        }
+
+        this.hmacSupplier = hmacSupplier;
+        this.defaultSalt = buildDefaultSalt(hmacSupplier.get());
+    }
+
+    private static Supplier<Mac> buildHmacSupplier(final MacSupplier baseSupplier) throws NoSuchAlgorithmException, NoSuchProviderException {
+        final Mac prototypeMac = baseSupplier.get();
+
+        try {
+            // Cloning a prototype Mac is almost always the most efficient way to get a new Mac instance
+            prototypeMac.clone();
+
+            return () -> {
+                try {
+                    return (Mac) prototypeMac.clone();
+                } catch (final CloneNotSupportedException e) {
+                    // We just cloned the prototype successfully, so we know this can never happen
+                    throw new AssertionError("Previously-cloneable Mac instances must remain cloneable");
+                }
+            };
+        } catch (final CloneNotSupportedException e) {
+            return () -> {
+                try {
+                    return baseSupplier.get();
+                } catch (final NoSuchAlgorithmException | NoSuchProviderException ex) {
+                    // We were able to create the prototype Mac, so this can never happen
+                    throw new AssertionError("Previously-legal algorithms/providers must remain legal");
+                }
+            };
+        }
+    }
+
+    private static Key buildDefaultSalt(final Mac hmac) {
+        return new SecretKeySpec(new byte[hmac.getMacLength()], hmac.getAlgorithm());
     }
 
     public static HKDF withHmacSha1() {
@@ -39,7 +98,7 @@ public class HKDF {
     }
 
     public String getAlgorithm() {
-        return algorithm;
+        return hmacSupplier.get().getAlgorithm();
     }
 
     public byte[] deriveKey(final byte[] inputKeyMaterial,
@@ -47,31 +106,22 @@ public class HKDF {
                             final byte[] info,
                             final int outputKeyLength) {
 
-        final Mac hmac;
+        final Mac hmac = hmacSupplier.get();
+        final Key pseudoRandomKey = extractPseudoRandomKey(inputKeyMaterial, salt, hmac);
 
-        try {
-            hmac = Mac.getInstance(algorithm);
-        } catch (final NoSuchAlgorithmException e) {
-            // We instantiated the Mac in the constructor; if it was legal then, it must be legal now
-            throw new AssertionError("Previously-legal algorithms must remain legal");
-        }
-
-        return deriveKey(extractPseudoRandomKey(inputKeyMaterial, salt, hmac), info, outputKeyLength, hmac);
+        return deriveKey(pseudoRandomKey, info, outputKeyLength, hmac);
     }
 
     public byte[] deriveKey(final byte[] pseudoRandomKey,
                             final byte[] info,
                             final int outputKeyLength) {
 
-        try {
-            return deriveKey(new SecretKeySpec(pseudoRandomKey, algorithm),
-                    info,
-                    outputKeyLength,
-                    Mac.getInstance(algorithm));
-        } catch (final NoSuchAlgorithmException e) {
-            // We instantiated the Mac in the constructor; if it was legal then, it must be legal now
-            throw new AssertionError("Previously-legal algorithms must remain legal");
-        }
+        final Mac hmac = hmacSupplier.get();
+
+        return deriveKey(new SecretKeySpec(pseudoRandomKey, hmac.getAlgorithm()),
+                info,
+                outputKeyLength,
+                hmac);
     }
 
     private byte[] deriveKey(final Key pseudoRandomKey,
@@ -83,9 +133,11 @@ public class HKDF {
             throw new IllegalArgumentException("Output key length must be positive");
         }
 
+        final int macLength = hmac.getMacLength();
+
         if (outputKeyLength > 255 * macLength) {
             throw new IllegalArgumentException(
-                    "Output key length with " + algorithm + " must be no more than " + (255 * macLength) + " bytes");
+                    "Output key length with " + hmac.getAlgorithm() + " must be no more than " + (255 * macLength) + " bytes");
         }
 
         final int rounds = (outputKeyLength + macLength - 1) / macLength;
@@ -125,12 +177,7 @@ public class HKDF {
     public byte[] extractPseudoRandomKey(final byte[] inputKeyMaterial,
                                          final byte[] salt) {
 
-        try {
-            return extractPseudoRandomKey(inputKeyMaterial, salt, Mac.getInstance(algorithm)).getEncoded();
-        } catch (final NoSuchAlgorithmException e) {
-            // We instantiated the Mac in the constructor; if it was legal then, it must be legal now
-            throw new AssertionError("Previously-legal algorithms must remain legal");
-        }
+        return extractPseudoRandomKey(inputKeyMaterial, salt, hmacSupplier.get()).getEncoded();
     }
 
     private Key extractPseudoRandomKey(final byte[] inputKeyMaterial,
@@ -138,8 +185,8 @@ public class HKDF {
                                        final Mac hmac) {
 
         try {
-            hmac.init(salt != null && salt.length != 0 ? new SecretKeySpec(salt, algorithm) : defaultSalt);
-            return new SecretKeySpec(hmac.doFinal(inputKeyMaterial), algorithm);
+            hmac.init(salt != null && salt.length != 0 ? new SecretKeySpec(salt, hmac.getAlgorithm()) : defaultSalt);
+            return new SecretKeySpec(hmac.doFinal(inputKeyMaterial), hmac.getAlgorithm());
         } catch (final InvalidKeyException e) {
             // Practically, this should never happen for any hashing algorithm (barring zero-length input key material)
             throw new IllegalArgumentException(e);
