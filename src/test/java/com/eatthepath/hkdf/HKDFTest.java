@@ -4,12 +4,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import javax.crypto.Mac;
 import java.security.NoSuchAlgorithmException;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 class HKDFTest {
 
@@ -129,5 +130,33 @@ class HKDFTest {
         }
 
         return parsed;
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"HmacSHA1", "HmacSHA256"})
+    void deriveKeyLengthBounds(final String algorithm) throws NoSuchAlgorithmException {
+        final HKDF hkdf = new HKDF(algorithm);
+
+        final byte[] inputKeyMaterial = parseHex("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b");
+        final byte[] salt = parseHex("000102030405060708090a0b0c");
+        final byte[] info = parseHex("f0f1f2f3f4f5f6f7f8f9");
+
+        assertThrows(IllegalArgumentException.class, () -> hkdf.deriveKey(inputKeyMaterial, salt, info, 0));
+
+        final int maxOutputKeyLength;
+        {
+            final Mac hmac = Mac.getInstance(algorithm);
+            maxOutputKeyLength = hmac.getMacLength() * 255;
+        }
+
+        for (int i = 1; i <= maxOutputKeyLength; i++) {
+            // Because we're passing this to a lambda, it has to be final or "effectively final"
+            final int outputKeyLength = i;
+
+            assertDoesNotThrow(() -> hkdf.deriveKey(inputKeyMaterial, salt, info, outputKeyLength));
+        }
+
+        assertThrows(IllegalArgumentException.class,
+                () -> hkdf.deriveKey(inputKeyMaterial, salt, info, maxOutputKeyLength + 1));
     }
 }
