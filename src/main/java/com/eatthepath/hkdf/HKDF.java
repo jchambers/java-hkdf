@@ -87,7 +87,7 @@ public class HKDF {
                 hmac.update((byte) 1);
                 hmac.doFinal(outputKey, 0);
 
-                for (byte round = 1; round < rounds; round++) {
+                for (int round = 1; round < rounds; round++) {
                     hmac.update(outputKey, (round - 1) * macLength, macLength);
                     hmac.update(info);
                     hmac.update((byte) (round + 1));
