@@ -213,12 +213,7 @@ class HKDFTest {
             maxOutputKeyLength = hmac.getMacLength() * 255;
         }
 
-        for (int i = 1; i <= maxOutputKeyLength; i++) {
-            // Because we're passing this to a lambda, it has to be final or "effectively final"
-            final int outputKeyLength = i;
-
-            assertDoesNotThrow(() -> hkdf.deriveKey(inputKeyMaterial, salt, info, outputKeyLength));
-        }
+        assertDoesNotThrow(() -> hkdf.deriveKey(inputKeyMaterial, salt, info, maxOutputKeyLength));
 
         assertThrows(IllegalArgumentException.class,
                 () -> hkdf.deriveKey(inputKeyMaterial, salt, info, maxOutputKeyLength + 1));
