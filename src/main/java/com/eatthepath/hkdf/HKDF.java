@@ -31,7 +31,9 @@ public class HKDF {
         this.defaultSalt = buildDefaultSalt(hmacSupplier.get());
     }
 
-    public HKDF(final String algorithm, final String provider) throws NoSuchAlgorithmException, NoSuchProviderException {
+    public HKDF(final String algorithm, final String provider)
+            throws NoSuchAlgorithmException, NoSuchProviderException {
+
         this.hmacSupplier = buildHmacSupplier(() -> Mac.getInstance(algorithm, provider));
         this.defaultSalt = buildDefaultSalt(hmacSupplier.get());
     }
@@ -50,7 +52,9 @@ public class HKDF {
         this.defaultSalt = buildDefaultSalt(hmacSupplier.get());
     }
 
-    private static Supplier<Mac> buildHmacSupplier(final MacSupplier baseSupplier) throws NoSuchAlgorithmException, NoSuchProviderException {
+    private static Supplier<Mac> buildHmacSupplier(final MacSupplier baseSupplier)
+            throws NoSuchAlgorithmException, NoSuchProviderException {
+
         final Mac prototypeMac = baseSupplier.get();
 
         try {
@@ -70,7 +74,7 @@ public class HKDF {
                 try {
                     return baseSupplier.get();
                 } catch (final NoSuchAlgorithmException | NoSuchProviderException ex) {
-                    // We were able to create the prototype Mac, so this can never happen
+                    // We were able to create the prototype Mac earlier, so this can never happen
                     throw new AssertionError("Previously-legal algorithms/providers must remain legal");
                 }
             };
@@ -137,7 +141,8 @@ public class HKDF {
 
         if (outputKeyLength > 255 * macLength) {
             throw new IllegalArgumentException(
-                    "Output key length with " + hmac.getAlgorithm() + " must be no more than " + (255 * macLength) + " bytes");
+                    "Output key length with " + hmac.getAlgorithm() +
+                            " must be no more than " + (255 * macLength) + " bytes");
         }
 
         final int rounds = (outputKeyLength + macLength - 1) / macLength;
