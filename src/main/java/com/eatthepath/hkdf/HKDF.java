@@ -179,15 +179,9 @@ public class HKDF {
         }
     }
 
-    public byte[] extractPseudoRandomKey(final byte[] inputKeyMaterial,
-                                         final byte[] salt) {
-
-        return extractPseudoRandomKey(inputKeyMaterial, salt, hmacSupplier.get()).getEncoded();
-    }
-
-    private Key extractPseudoRandomKey(final byte[] inputKeyMaterial,
-                                       final byte[] salt,
-                                       final Mac hmac) {
+    Key extractPseudoRandomKey(final byte[] inputKeyMaterial,
+                               final byte[] salt,
+                               final Mac hmac) {
 
         try {
             hmac.init(salt != null && salt.length != 0 ? new SecretKeySpec(salt, hmac.getAlgorithm()) : defaultSalt);
