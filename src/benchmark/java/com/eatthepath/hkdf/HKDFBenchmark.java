@@ -1,9 +1,6 @@
 package com.eatthepath.hkdf;
 
-import org.openjdk.jmh.annotations.Benchmark;
-import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Setup;
-import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.*;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Random;
@@ -18,6 +15,9 @@ public class HKDFBenchmark {
     private byte[] info;
 
     private int i = 0;
+
+    @Param({"16", "32", "77", "128", "8160"})
+    public int outputKeyLength;
 
     private static final int INPUT_KEY_MATERIAL_ENTRIES = 16384;
 
@@ -42,6 +42,6 @@ public class HKDFBenchmark {
 
     @Benchmark
     public byte[] deriveKey() {
-        return hkdf.deriveKey(inputKeyMaterial[i++ % INPUT_KEY_MATERIAL_ENTRIES], salt, info, 32);
+        return hkdf.deriveKey(inputKeyMaterial[i++ % INPUT_KEY_MATERIAL_ENTRIES], salt, info, outputKeyLength);
     }
 }
