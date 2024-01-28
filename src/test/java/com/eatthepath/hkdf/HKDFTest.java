@@ -180,25 +180,6 @@ class HKDFTest {
         );
     }
 
-    private static byte[] parseHex(final CharSequence charSequence) {
-        if (charSequence == null) {
-            return new byte[0];
-        }
-
-        if (charSequence.length() % 2 != 0) {
-            throw new IllegalArgumentException("Character sequence must have an even number of characters");
-        }
-
-        final byte[] parsed = new byte[charSequence.length() / 2];
-
-        for (int i = 0; i < charSequence.length(); i += 2) {
-            parsed[i / 2] = (byte) (Character.digit(charSequence.charAt(i), 16) << 4 |
-                    Character.digit(charSequence.charAt(i + 1), 16));
-        }
-
-        return parsed;
-    }
-
     @ParameterizedTest
     @ValueSource(strings = {"HmacSHA1", "HmacSHA256"})
     void deriveKeyLengthBounds(final String algorithm) throws NoSuchAlgorithmException {
@@ -221,4 +202,23 @@ class HKDFTest {
         assertThrows(IllegalArgumentException.class,
                 () -> hkdf.deriveKey(inputKeyMaterial, salt, info, maxOutputKeyLength + 1));
     }
+
+  private static byte[] parseHex(final CharSequence charSequence) {
+    if (charSequence == null) {
+      return new byte[0];
+    }
+
+    if (charSequence.length() % 2 != 0) {
+      throw new IllegalArgumentException("Character sequence must have an even number of characters");
+    }
+
+    final byte[] parsed = new byte[charSequence.length() / 2];
+
+    for (int i = 0; i < charSequence.length(); i += 2) {
+      parsed[i / 2] = (byte) (Character.digit(charSequence.charAt(i), 16) << 4 |
+          Character.digit(charSequence.charAt(i + 1), 16));
+    }
+
+    return parsed;
+  }
 }
