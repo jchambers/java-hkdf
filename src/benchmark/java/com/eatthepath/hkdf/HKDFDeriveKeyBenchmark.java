@@ -6,7 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Random;
 
 @State(Scope.Benchmark)
-public class HKDFBenchmark {
+public class HKDFDeriveKeyBenchmark {
 
     private HKDF hkdf;
 
