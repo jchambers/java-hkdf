@@ -31,10 +31,8 @@ class HKDFTest {
                                 final byte[] salt,
                                 final byte[] expectedKey) throws NoSuchAlgorithmException {
 
-        final Mac hmac = Mac.getInstance(algorithm);
-
         assertArrayEquals(expectedKey,
-                new HKDF(algorithm).extractPseudoRandomKey(inputKeyMaterial, salt, hmac).getEncoded());
+                new HKDF(algorithm).extractPseudoRandomKey(inputKeyMaterial, salt));
     }
 
     private static Stream<Arguments> extractPseudoRandomKey() {
