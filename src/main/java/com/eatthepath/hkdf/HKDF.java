@@ -52,6 +52,25 @@ public class HKDF {
         this.defaultSalt = buildDefaultSalt(hmacSupplier.get());
     }
 
+    public HKDF(final Mac prototypeMac) {
+        try {
+            final Mac cloned = (Mac) prototypeMac.clone();
+        } catch (final CloneNotSupportedException | ClassCastException e) {
+            throw new IllegalArgumentException("Prototype MAC cannot be cloned", e);
+        }
+
+        this.hmacSupplier = () -> {
+            try {
+                return (Mac) prototypeMac.clone();
+            } catch (final CloneNotSupportedException e) {
+                // We just cloned the prototype successfully, so we know this can never happen
+                throw new AssertionError("Previously-cloneable Mac instances must remain cloneable");
+            }
+        };
+
+        this.defaultSalt = buildDefaultSalt(prototypeMac);
+    }
+
     private static Supplier<Mac> buildHmacSupplier(final MacSupplier baseSupplier)
             throws NoSuchAlgorithmException, NoSuchProviderException {
 
