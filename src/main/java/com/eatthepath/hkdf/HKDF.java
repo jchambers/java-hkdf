@@ -15,6 +15,8 @@ import java.util.function.Supplier;
  *
  * @see <a href="https://datatracker.ietf.org/doc/html/rfc5869">IETF RFC 5869 - HMAC-based Extract-and-Expand Key
  * Derivation Function (HKDF)</a>
+ *
+ * @author <a href="https://github.com/jchambers/">Jon Chambers</a>
  */
 public class HKDF {
 
@@ -56,8 +58,9 @@ public class HKDF {
      * @param algorithm the name of the HMAC algorithm to use in the newly-constructed HKDF instance
      * @param provider the name of the security provider for the given algorithm
      *
-     * @throws NoSuchAlgorithmException if no security provider supports a {@code MacSpi} implementation for the
+     * @throws NoSuchAlgorithmException if the named provider does not support a {@code MacSpi} implementation for the
      * specified algorithm
+     * @throws NoSuchProviderException if the named provider is not registered in the security provider list
      *
      * @see Mac#getInstance(String, String)
      */
@@ -74,7 +77,7 @@ public class HKDF {
      * @param algorithm the name of the HMAC algorithm to use in the newly-constructed HKDF instance
      * @param provider the security provider that implements the given algorithm
      *
-     * @throws NoSuchAlgorithmException if no security provider supports a {@code MacSpi} implementation for the
+     * @throws NoSuchAlgorithmException if the given provider does not support a {@code MacSpi} implementation for the
      * specified algorithm
      *
      * @see Mac#getInstance(String, Provider)
@@ -163,12 +166,11 @@ public class HKDF {
 
     /**
      * Derives key material from the given input key material, salt, and info. In the terminology of the HKDF
-     * specification, this method combines the "expand" and "extract" steps of the HKDF algorithm.
+     * specification, this method combines the "extract" and "expand" steps of the HKDF algorithm.
      *
-     * @param inputKeyMaterial the input key material from which to derive a key
+     * @param inputKeyMaterial the input key material from which to derive output key material
      * @param salt optional salt value (a non-secret random value); may be {@code null} or empty
-     *             // TODO Null info tests
-     * @param info optional context and application specific information; may be {@code null}
+     * @param info optional context and application specific information; may be {@code null} or empty
      * @param outputKeyLength the desired length of the output key; must be less than or equal to 255 * (the output
      *                        length of this instance's HMAC function)
      *
@@ -189,17 +191,31 @@ public class HKDF {
     }
 
     /**
-     * Derives key material from the given pseudo-random key
-     * @param pseudoRandomKey
-     * @param info
-     * @param outputKeyLength
-     * @return
+     * Derives key material from the given pseudo-random key. In the terminology of the HKDF specification, this method
+     * performs the "expand" step in isolation. The pseudorandom key may be generated using the
+     * {@link #extractPseudoRandomKey(byte[], byte[])}, but callers may use appropriate key material from other sources
+     * as well.
+     *
+     * @param pseudoRandomKey the pseudo-random key from which to derive key material; must be at least as long as the
+     *                        output length of this instance's HMAC function
+     * @param info optional context and application specific information; may be {@code null} or empty
+     * @param outputKeyLength the desired length of the output key; must be less than or equal to 255 * (the output
+     *                        length of this instance's HMAC function)
+     *
+     * @return the derived key material
+     *
+     * @see #extractPseudoRandomKey(byte[], byte[])
+     * @see Mac#getMacLength()
      */
     public byte[] deriveKey(final byte[] pseudoRandomKey,
                             final byte[] info,
                             final int outputKeyLength) {
 
         final Mac hmac = hmacSupplier.get();
+
+        if (pseudoRandomKey == null || pseudoRandomKey.length < hmac.getMacLength()) {
+            throw new IllegalArgumentException("Pseudo-random key must be at least " + hmac.getMacLength() + " bytes long");
+        }
 
         return deriveKey(new SecretKeySpec(pseudoRandomKey, hmac.getAlgorithm()),
                 info,
@@ -258,6 +274,15 @@ public class HKDF {
         }
     }
 
+    /**
+     * Extracts a pseudo-random key suitable for use with {@link #deriveKey(Key, byte[], int, Mac)} from the given input
+     * key material.
+     *
+     * @param inputKeyMaterial the input key material from which to derive a pseudo-random key
+     * @param salt optional salt value (a non-secret random value); may be {@code null} or empty
+     *
+     * @return a pseudo-random key suitable for use with {@link #deriveKey(byte[], byte[], int)}
+     */
     public byte[] extractPseudoRandomKey(final byte[] inputKeyMaterial, final byte[] salt) {
         return extractPseudoRandomKey(inputKeyMaterial, salt, hmacSupplier.get());
     }
